@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>คู่มือ Deploy GenerateFlow ไปยัง Cloudflare (สำหรับมือใหม่)</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --card: #1e293b;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --good: #22c55e;
+    --bad: #f87171;
+    --code-bg: #0b1220;
+    --border: #334155;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Segoe UI", "Noto Sans Thai", Tahoma, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+  }
+  .container {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 32px 20px 80px;
+  }
+  h1 {
+    font-size: 28px;
+    margin-bottom: 4px;
+  }
+  .subtitle {
+    color: var(--muted);
+    margin-top: 0;
+    margin-bottom: 32px;
+  }
+  h2 {
+    font-size: 22px;
+    margin-top: 48px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--border);
+  }
+  h2 .step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: var(--accent);
+    color: #0b1220;
+    border-radius: 50%;
+    font-weight: 700;
+    margin-right: 10px;
+    font-size: 16px;
+  }
+  h3 {
+    font-size: 17px;
+    margin-top: 24px;
+    color: var(--accent);
+  }
+  p { color: var(--text); }
+  .muted { color: var(--muted); font-size: 14px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin: 16px 0;
+  }
+  .analogy {
+    background: linear-gradient(135deg, #1e293b, #142033);
+    border-left: 4px solid var(--accent);
+  }
+  .error-box {
+    background: #2a1414;
+    border-left: 4px solid var(--bad);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 14px 0;
+  }
+  .error-box .label {
+    color: var(--bad);
+    font-weight: 700;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+  .fix-box {
+    background: #102a1c;
+    border-left: 4px solid var(--good);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 14px 0;
+  }
+  .fix-box .label {
+    color: var(--good);
+    font-weight: 700;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-family: "Cascadia Code", Consolas, monospace;
+    font-size: 13px;
+    color: #fbbf24;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-family: "Cascadia Code", Consolas, monospace;
+    font-size: 13px;
+    color: #e2e8f0;
+  }
+  pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    color: inherit;
+  }
+  .log-line {
+    color: #6ee7b7;
+  }
+  .flow {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 20px 0;
+  }
+  .flow-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+  }
+  .flow-item .icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent);
+    color: #0b1220;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .flow-arrow {
+    text-align: center;
+    color: var(--muted);
+    font-size: 20px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 14px;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 10px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background: var(--card);
+    color: var(--accent);
+  }
+  .checklist {
+    list-style: none;
+    padding: 0;
+  }
+  .checklist li {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  .checklist li::before {
+    content: "✅";
+    flex-shrink: 0;
+  }
+  .badge {
+    display: inline-block;
+    background: var(--accent);
+    color: #0b1220;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-left: 6px;
+  }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>🚀 คู่มือ Deploy GenerateFlow ไปยัง Cloudflare</h1>
+  <p class="subtitle">อธิบายแบบมือใหม่: ทำไมต้องตั้งค่าแบบนี้ และทำไม error ที่เจอมาถึงเกิด</p>
+
+  <!-- ส่วนที่ 1: ภาพรวม -->
+  <h2><span class="step-num">1</span>ภาพรวม: โปรเจกต์นี้คืออะไร</h2>
+  <p>
+    <strong>GenerateFlow</strong> เป็นเว็บที่เขียนด้วย <strong>Next.js</strong> (App Router) ซึ่งมี API Route
+    (<code>app/api/generate/route.ts</code>) ที่ต้องรันโค้ดฝั่ง server ได้ ไม่ใช่เว็บ static ธรรมดา
+  </p>
+  <p>
+    Cloudflare ไม่ได้รัน Next.js ตรงๆ — ต้องผ่านตัวแปลงที่เรียกว่า
+    <strong>OpenNext adapter</strong> (<code>@opennextjs/cloudflare</code>) ก่อน เพื่อแปลงโค้ด Next.js
+    ให้กลายเป็นไฟล์ที่ Cloudflare Workers รันได้
+  </p>
+
+  <div class="card analogy">
+    <strong>🍳 เปรียบเทียบง่ายๆ:</strong><br>
+    ลองคิดว่าโค้ด Next.js ของคุณคือ "วัตถุดิบในตู้เย็น" (ข้าว, ผัก, เนื้อ)<br>
+    <strong>Build</strong> = เอาวัตถุดิบมา "ปรุง" จนกลายเป็นจานอาหารพร้อมเสิร์ฟ (โฟลเดอร์ <code>.open-next/</code>)<br>
+    <strong>Deploy</strong> = เอาจานอาหารที่ปรุงเสร็จแล้วไป "เสิร์ฟ" ให้ลูกค้า (อัปโหลดขึ้น Cloudflare)<br><br>
+    ❌ ถ้า <strong>ไม่ build</strong> ก่อน แล้วสั่ง deploy ทันที = เหมือนเสิร์ฟจานเปล่าให้ลูกค้า เพราะยังไม่มีอาหารให้เสิร์ฟ!
+  </div>
+
+  <!-- ส่วนที่ 2: Flow การ deploy -->
+  <h2><span class="step-num">2</span>Flow การ Deploy ที่ตั้งใจไว้</h2>
+  <p>โปรเจกต์นี้ใช้วิธี <strong>deploy ผ่าน Git</strong> — ไม่ต้องรันคำสั่งจากเครื่องตัวเอง:</p>
+
+  <div class="flow">
+    <div class="flow-item"><div class="icon">1</div> คุณ <code>git push</code> โค้ดขึ้น GitHub</div>
+    <div class="flow-arrow">⬇</div>
+    <div class="flow-item"><div class="icon">2</div> Cloudflare ตรวจพบ push ใหม่ → เริ่ม "Build"</div>
+    <div class="flow-arrow">⬇</div>
+    <div class="flow-item"><div class="icon">3</div> รัน <strong>Build command</strong> → สร้างโฟลเดอร์ <code>.open-next/</code></div>
+    <div class="flow-arrow">⬇</div>
+    <div class="flow-item"><div class="icon">4</div> รัน <strong>Deploy command</strong> → อัปโหลด <code>.open-next/</code> ขึ้น Cloudflare Workers</div>
+    <div class="flow-arrow">⬇</div>
+    <div class="flow-item"><div class="icon">🌐</div> เว็บออนไลน์ที่ <code>https://generateflow.&lt;subdomain&gt;.workers.dev</code></div>
+  </div>
+
+  <p class="muted">
+    ปัญหาที่เจอทั้งหมดเกิดจากขั้นที่ 3 ("Build command") <strong>ไม่ได้ทำงาน</strong> ทำให้ขั้นที่ 4 หาไฟล์ไม่เจอ
+  </p>
+
+  <!-- ส่วนที่ 3: คำศัพท์สำคัญ -->
+  <h2><span class="step-num">3</span>คำศัพท์ที่ต้องรู้</h2>
+  <table>
+    <tr><th>คำศัพท์</th><th>ความหมาย</th></tr>
+    <tr>
+      <td><code>wrangler.jsonc</code></td>
+      <td>ไฟล์ตั้งค่า Worker บอก Cloudflare ว่าไฟล์เริ่มต้น (entry point) อยู่ที่ไหน — ในโปรเจกต์นี้คือ
+        <code>.open-next/worker.js</code></td>
+    </tr>
+    <tr>
+      <td><code>.open-next/</code></td>
+      <td>โฟลเดอร์ผลลัพธ์ที่ได้จากการ <strong>build</strong> — <u>ไม่ได้เก็บใน Git</u> (อยู่ใน <code>.gitignore</code>)
+        ต้องสร้างใหม่ทุกครั้งที่ deploy</td>
+    </tr>
+    <tr>
+      <td><strong>Build command</strong></td>
+      <td>คำสั่งที่ Cloudflare รัน "ก่อน" เพื่อแปลงโค้ด Next.js → <code>.open-next/</code></td>
+    </tr>
+    <tr>
+      <td><strong>Deploy command</strong></td>
+      <td>คำสั่งที่ Cloudflare รัน "หลัง build" เพื่ออัปโหลดผลลัพธ์ขึ้น Cloudflare Workers</td>
+    </tr>
+    <tr>
+      <td><code>npx wrangler deploy</code></td>
+      <td>คำสั่ง deploy แบบเดิม (ทันที 100%)</td>
+    </tr>
+    <tr>
+      <td><code>npx wrangler versions upload</code></td>
+      <td>คำสั่ง deploy แบบใหม่ของ Cloudflare (Gradual Deployments) — เป็นค่า default ปัจจุบัน</td>
+    </tr>
+  </table>
+
+  <!-- ส่วนที่ 4: ปัญหาที่เจอ -->
+  <h2><span class="step-num">4</span>ปัญหาที่เจอ และสาเหตุ</h2>
+
+  <h3>ครั้งที่ 1: "Could not find compiled Open Next config"</h3>
+  <p>ตอนนั้น Deploy command = <code>npx wrangler deploy</code></p>
+  <pre><code>Executing user deploy command: npx wrangler deploy
+OpenNext project detected, calling `opennextjs-cloudflare deploy`
+
+<span class="log-line">ERROR Could not find compiled Open Next config, did you run the build command?</span></code></pre>
+  <div class="error-box">
+    <div class="label">สาเหตุ</div>
+    <code>npx wrangler deploy</code> เห็นว่าเป็นโปรเจกต์ OpenNext เลยส่งต่อให้ <code>opennextjs-cloudflare deploy</code> ทำงาน
+    แต่คำสั่งนี้ขั้นแรกจะไปหาไฟล์ "ผลลัพธ์การ build" ก่อนเสมอ — เนื่องจาก<strong>ไม่มีขั้นตอน build เกิดขึ้นเลย</strong>
+    (ไม่เห็น log การ build ก่อนหน้านี้) จึงหาไฟล์ไม่เจอ
+  </div>
+
+  <h3>ครั้งที่ 2: "The entry-point file at .open-next/worker.js was not found"</h3>
+  <p>ตอนนั้น Build command = <code>None</code> และ Deploy command = <code>npx wrangler versions upload</code></p>
+  <pre><code>Executing user deploy command: npx wrangler versions upload
+
+<span class="log-line">✘ [ERROR] The entry-point file at ".open-next/worker.js" was not found.</span>
+
+  This might mean that your entry-point file needs to be generated
+  (which is the general case when a framework is being used).
+  If that's the case please run your project's build command and try again.</code></pre>
+  <div class="error-box">
+    <div class="label">สาเหตุ</div>
+    คำสั่งนี้ไม่ได้ผ่าน opennext wrapper เหมือนครั้งที่ 1 — มันเช็คไฟล์ <code>.open-next/worker.js</code>
+    ตามที่ <code>wrangler.jsonc</code> กำหนดไว้ตรงๆเลย พอ <strong>Build command เป็น None</strong>
+    ไฟล์นี้จึงไม่ถูกสร้างขึ้นมาตั้งแต่แรก
+  </div>
+
+  <div class="card" style="border-color:#fbbf24;">
+    💡 <strong>สรุปสาเหตุทั้งสองครั้ง:</strong> เหมือนกัน 100% — คือ <strong>ไม่มีใครรัน
+    <code>opennextjs-cloudflare build</code> เพื่อสร้างโฟลเดอร์ <code>.open-next/</code> เลย</strong>
+    error message ต่างกันแค่เพราะ deploy command คนละตัวไปเช็คไฟล์คนละจังหวะ
+  </div>
+
+  <!-- ส่วนที่ 5: วิธีแก้ -->
+  <h2><span class="step-num">5</span>วิธีแก้ไข ✅</h2>
+  <p>เข้าไปที่ Cloudflare Dashboard → <strong>Workers &amp; Pages → generateflow → Settings → Build</strong></p>
+
+  <div class="fix-box">
+    <div class="label">ตั้งค่าดังนี้</div>
+    <table>
+      <tr><th>ช่อง</th><th>ค่าที่ต้องตั้ง</th></tr>
+      <tr>
+        <td>Build command</td>
+        <td><code>npx opennextjs-cloudflare build</code> <span class="badge">สำคัญที่สุด</span></td>
+      </tr>
+      <tr>
+        <td>Deploy command</td>
+        <td><code>npx wrangler versions upload</code> (ค่า default เดิม ไม่ต้องเปลี่ยน)</td>
+      </tr>
+      <tr>
+        <td>Root directory</td>
+        <td><code>/</code> (ค่า default เดิม)</td>
+      </tr>
+    </table>
+  </div>
+
+  <p>
+    เมื่อ Build command รันสำเร็จ มันจะสร้างโฟลเดอร์ <code>.open-next/worker.js</code> ขึ้นมา
+    จากนั้น Deploy command ก็จะเจอไฟล์และอัปโหลดได้ตามปกติ
+  </p>
+
+  <h3>ทางเลือกอื่น (ถ้าวิธีบนยังไม่ผ่าน)</h3>
+  <p>
+    ตั้ง Build command เป็น <code>None</code> (ว่าง) แล้วใส่ Deploy command เป็น
+    <code>npm run deploy</code> แทน — เพราะ script นี้ใน <code>package.json</code>
+    ทำทั้ง build และ deploy ในคำสั่งเดียวอยู่แล้ว:
+  </p>
+  <pre><code>"deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy"</code></pre>
+
+  <!-- ส่วนที่ 6: Checklist -->
+  <h2><span class="step-num">6</span>Checklist สรุป</h2>
+  <ul class="checklist">
+    <li>โค้ดถูก push ขึ้น GitHub branch <code>main</code> แล้ว</li>
+    <li>เชื่อม Cloudflare Workers Builds กับ repo แล้ว</li>
+    <li>ชื่อ Worker ตรงกับ <code>name</code> ใน <code>wrangler.jsonc</code> (คือ <code>generateflow</code>)</li>
+    <li><strong>Build command = <code>npx opennextjs-cloudflare build</code></strong></li>
+    <li>Deploy command ปล่อยเป็น default (<code>npx wrangler versions upload</code>)</li>
+    <li>กด Save → กลับไปแท็บ Deployments → กด Retry deployment</li>
+  </ul>
+
+  <p class="muted">
+    หลัง deploy ผ่านครั้งแรกแล้ว ทุกครั้งที่ <code>git push</code> ขึ้น <code>main</code>
+    Cloudflare จะ build + deploy ให้อัตโนมัติตาม flow นี้เสมอ ไม่ต้องตั้งค่าซ้ำอีก
+  </p>
+
+</div>
+</body>
+</html>

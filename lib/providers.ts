@@ -24,7 +24,7 @@ export const PROVIDERS: ProviderInfo[] = [
   {
     id: 'gemini',
     label: 'Google Gemini',
-    defaultModel: 'gemini-2.0-flash',
+    defaultModel: 'gemini-2.5-flash',
     keyPlaceholder: 'AIza...',
     helpText: 'รับ API Key ได้ที่ aistudio.google.com/app/apikey',
   },
