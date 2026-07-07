@@ -29,16 +29,21 @@ export const EXAMPLE_ANSWERS_GUIDE = `# โครงสร้างของ "ex
   ]
 }`;
 
-export const OUTPUT_FORMAT_GUIDE = `# รูปแบบผลลัพธ์ (สำคัญที่สุด)
-ตอบกลับเป็นข้อความล้วนเท่านั้น ห้ามใส่ code fence (\`\`\`) และห้ามมีข้อความอื่นใดนอกเหนือจากรูปแบบนี้ โดยแบ่งเป็น 3 ส่วนด้วยบรรทัดคั่นตามนี้เป๊ะ ๆ (พิมพ์บรรทัดคั่นตรงตามตัวพิมพ์ใหญ่-เล็กและสัญลักษณ์ทุกตัว):
+export function buildOutputFormatGuide(includeSummary: boolean): string {
+  const sections = [
+    `${SECTION_MARKERS.getinfo}\n<เนื้อหา prompt getinfo ทั้งหมด — ข้อความล้วน ห้ามใส่ JSON>`,
+    ...(includeSummary
+      ? [`${SECTION_MARKERS.summary}\n<เนื้อหา prompt summary ทั้งหมด — ข้อความล้วน ห้ามใส่ JSON>`]
+      : []),
+    `${SECTION_MARKERS.check_parameter}\n<เนื้อหา check_parameter ทั้งหมด — ข้อความล้วน ห้ามใส่ JSON>`,
+  ];
 
-${SECTION_MARKERS.getinfo}
-<เนื้อหา prompt getinfo ทั้งหมด — ข้อความล้วน ห้ามใส่ JSON>
-${SECTION_MARKERS.summary}
-<เนื้อหา prompt summary ทั้งหมด — ข้อความล้วน ห้ามใส่ JSON>
-${SECTION_MARKERS.check_parameter}
-<เนื้อหา check_parameter ทั้งหมด — ข้อความล้วน ห้ามใส่ JSON>
+  return `# รูปแบบผลลัพธ์ (สำคัญที่สุด)
+ตอบกลับเป็นข้อความล้วนเท่านั้น ห้ามใส่ code fence (\`\`\`) และห้ามมีข้อความอื่นใดนอกเหนือจากรูปแบบนี้ โดยแบ่งเป็น ${sections.length} ส่วนด้วยบรรทัดคั่นตามนี้เป๊ะ ๆ (พิมพ์บรรทัดคั่นตรงตามตัวพิมพ์ใหญ่-เล็กและสัญลักษณ์ทุกตัว):
+
+${sections.join('\n')}
 ${SECTION_MARKERS.end}`;
+}
 
 export const EXAMPLE_ANSWERS_OUTPUT_GUIDE = `# รูปแบบผลลัพธ์ (สำคัญที่สุด)
 ตอบกลับเป็น JSON ตามโครงสร้าง example_answers เท่านั้น ห้ามใส่ code fence (\`\`\`) และห้ามมีข้อความอื่นใดนอกเหนือจาก JSON`;

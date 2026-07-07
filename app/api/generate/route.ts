@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { callProvider } from '@/lib/providers';
 import { SECTION_MARKERS } from '@/lib/constants';
+import { normalizeExampleAnswers } from '@/lib/outputParsing';
 import {
-  SYSTEM_PROMPT_MANUAL,
-  SYSTEM_PROMPT_AUTO,
   SYSTEM_PROMPT_EXAMPLE_ANSWERS,
+  buildSystemPromptManual,
+  buildSystemPromptAuto,
   buildUserPrompt,
   buildUserPromptAuto,
   buildExampleAnswersPrompt,
@@ -20,6 +21,8 @@ export async function POST(request: Request) {
   }
 
   const { provider, apiKey, model, botName, businessDescription, mode, getinfoSteps, summarySteps } = body;
+  const includeSummary = body.includeSummary !== false;
+  const includeExampleAnswers = body.includeExampleAnswers !== false;
 
   if (!provider || !apiKey?.trim()) {
     return NextResponse.json({ error: 'กรุณาเลือก AI Provider และกรอก API Key' }, { status: 400 });
@@ -39,29 +42,37 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-    systemPrompt = SYSTEM_PROMPT_AUTO;
-    userPrompt = buildUserPromptAuto({ botName, businessDescription });
+    systemPrompt = buildSystemPromptAuto(includeSummary);
+    userPrompt = buildUserPromptAuto({ botName, businessDescription, includeSummary });
   } else {
     if (!getinfoSteps?.length && !summarySteps?.length) {
       return NextResponse.json({ error: 'กรุณาเปิดใช้งานอย่างน้อย 1 Step' }, { status: 400 });
     }
-    systemPrompt = SYSTEM_PROMPT_MANUAL;
+    systemPrompt = buildSystemPromptManual(includeSummary);
     userPrompt = buildUserPrompt({
       botName,
       businessDescription,
       getinfoSteps: getinfoSteps ?? [],
       summarySteps: summarySteps ?? [],
+      includeSummary,
     });
   }
 
   try {
-    // รอบที่ 1: สร้าง prompt 3 ส่วน (getinfo, summary, check_parameter)
-    // แยกเป็น 2 รอบเพื่อลดขนาดต่อ request ให้อยู่ใต้เพดาน TPM ของ Groq free tier
-    const raw = await callProvider({ provider, apiKey, model, systemPrompt, userPrompt, maxTokens: 6000 });
-    const parsed = extractSections(raw);
+    // รอบที่ 1: สร้าง prompt ส่วนหลัก (getinfo, check_parameter และ summary ถ้าเลือกไว้)
+    // แยกเป็นหลายรอบเพื่อลดขนาดต่อ request ให้อยู่ใต้เพดาน TPM ของ Groq free tier
+    const raw = await callProvider({
+      provider,
+      apiKey,
+      model,
+      systemPrompt,
+      userPrompt,
+      maxTokens: includeSummary ? 6000 : 4500,
+    });
+    const parsed = extractSections(raw, includeSummary);
 
     const emptyParts = Object.entries(parsed)
-      .filter(([, content]) => !content)
+      .filter(([key, content]) => content === '' && (key !== 'summary' || includeSummary))
       .map(([key]) => key);
 
     if (emptyParts.length) {
@@ -69,19 +80,22 @@ export async function POST(request: Request) {
       throw new Error(`AI ตอบกลับไม่ครบถ้วน (ไม่มีเนื้อหาในส่วน: ${emptyParts.join(', ')})`);
     }
 
-    // รอบที่ 2: สร้าง example_answers จาก getinfo ที่ได้จากรอบแรก
-    const exampleRaw = await callProvider({
-      provider,
-      apiKey,
-      model,
-      systemPrompt: SYSTEM_PROMPT_EXAMPLE_ANSWERS,
-      userPrompt: buildExampleAnswersPrompt({ botName, businessDescription, getinfo: parsed.getinfo }),
-      maxTokens: 2000,
-    });
-    const example_answers = normalizeExampleAnswers(exampleRaw);
-    if (!example_answers) {
-      console.error('[generate] example_answers ไม่มีเนื้อหา\n--- Raw AI response ---\n', exampleRaw);
-      throw new Error('AI ตอบกลับไม่ครบถ้วน (ไม่มีเนื้อหาในส่วน: example_answers)');
+    // รอบที่ 2 (ถ้าเลือกไว้): สร้าง example_answers จาก getinfo ที่ได้จากรอบแรก
+    let example_answers: string | null = null;
+    if (includeExampleAnswers) {
+      const exampleRaw = await callProvider({
+        provider,
+        apiKey,
+        model,
+        systemPrompt: SYSTEM_PROMPT_EXAMPLE_ANSWERS,
+        userPrompt: buildExampleAnswersPrompt({ botName, businessDescription, getinfo: parsed.getinfo }),
+        maxTokens: 2000,
+      });
+      example_answers = normalizeExampleAnswers(exampleRaw);
+      if (!example_answers) {
+        console.error('[generate] example_answers ไม่มีเนื้อหา\n--- Raw AI response ---\n', exampleRaw);
+        throw new Error('AI ตอบกลับไม่ครบถ้วน (ไม่มีเนื้อหาในส่วน: example_answers)');
+      }
     }
 
     const result: GenerateResult = { ...parsed, example_answers };
@@ -100,20 +114,7 @@ const MARKER_PATTERNS = {
   end: /=+\s*END\s*=+/i,
 };
 
-// จัดรูปแบบ JSON ตัวอย่างคำตอบให้พร้อมบันทึกเป็นไฟล์ .json (ตัด code fence ที่อาจติดมา แล้ว pretty-print)
-function normalizeExampleAnswers(raw: string): string {
-  let text = raw.trim();
-  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (fenceMatch) text = fenceMatch[1].trim();
-  try {
-    return JSON.stringify(JSON.parse(text), null, 2);
-  } catch {
-    // ถ้า parse ไม่ได้ ให้คืนข้อความเดิมเพื่อให้ผู้ใช้เห็นและแก้เองได้
-    return text;
-  }
-}
-
-function extractSections(text: string): Omit<GenerateResult, 'example_answers'> {
+function extractSections(text: string, includeSummary: boolean): Omit<GenerateResult, 'example_answers'> {
   let cleaned = text.trim();
   const fenceMatch = cleaned.match(/```(?:[a-z]*)?\s*([\s\S]*?)```/i);
   // ใช้เนื้อหาใน code fence เฉพาะเมื่อมี marker ครบอยู่ข้างใน (กันกรณี AI ครอบทั้งหมดด้วย fence)
@@ -125,7 +126,7 @@ function extractSections(text: string): Omit<GenerateResult, 'example_answers'> 
 
   const missing: string[] = [];
   if (!getinfoMatch) missing.push(SECTION_MARKERS.getinfo);
-  if (!summaryMatch) missing.push(SECTION_MARKERS.summary);
+  if (includeSummary && !summaryMatch) missing.push(SECTION_MARKERS.summary);
   if (!checkMatch) missing.push(SECTION_MARKERS.check_parameter);
 
   if (missing.length) {
@@ -133,17 +134,22 @@ function extractSections(text: string): Omit<GenerateResult, 'example_answers'> 
     throw new Error(`AI ตอบกลับไม่ครบถ้วน (ไม่พบส่วน: ${missing.join(', ')})`);
   }
 
-  // missing.length === 0 guarantees these matches are non-null
+  // missing.length === 0 guarantees the required matches are non-null
   const getinfoIdx = getinfoMatch!.index!;
-  const summaryIdx = summaryMatch!.index!;
   const checkIdx = checkMatch!.index!;
+  // ถ้าโมเดลเผลอใส่ ===SUMMARY=== มาทั้งที่ไม่ได้ขอ ให้ getinfo จบตรง marker แรกที่เจอ
+  const summaryIdx = summaryMatch?.index;
+  const getinfoEnd = summaryIdx !== undefined && summaryIdx < checkIdx ? summaryIdx : checkIdx;
 
   const endMatch = cleaned.match(MARKER_PATTERNS.end);
   const checkEnd = endMatch ? endMatch.index! : cleaned.length;
 
   return {
-    getinfo: cleaned.slice(getinfoIdx + getinfoMatch![0].length, summaryIdx).trim(),
-    summary: cleaned.slice(summaryIdx + summaryMatch![0].length, checkIdx).trim(),
+    getinfo: cleaned.slice(getinfoIdx + getinfoMatch![0].length, getinfoEnd).trim(),
+    summary:
+      includeSummary && summaryMatch
+        ? cleaned.slice(summaryIdx! + summaryMatch[0].length, checkIdx).trim()
+        : null,
     check_parameter: cleaned.slice(checkIdx + checkMatch![0].length, checkEnd).trim(),
   };
 }

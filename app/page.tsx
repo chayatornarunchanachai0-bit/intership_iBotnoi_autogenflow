@@ -5,7 +5,7 @@ import StepList from './components/StepList';
 import OutputPanel from './components/OutputPanel';
 import { PROVIDERS, getProviderInfo } from '@/lib/providers';
 import { getDefaultSteps } from '@/lib/steps';
-import type { GenerateResult } from '@/lib/types';
+import type { GenerateResult, GeneratePart } from '@/lib/types';
 
 interface GenerationState {
   status: 'idle' | 'loading' | 'success' | 'error';
@@ -16,7 +16,8 @@ interface GenerationState {
 type GenerationAction =
   | { type: 'START' }
   | { type: 'SUCCESS'; result: GenerateResult }
-  | { type: 'ERROR'; error: string };
+  | { type: 'ERROR'; error: string }
+  | { type: 'SET_PART'; part: GeneratePart; content: string };
 
 const initialGenerationState: GenerationState = { status: 'idle', error: '', result: null };
 
@@ -28,6 +29,9 @@ function generationReducer(state: GenerationState, action: GenerationAction): Ge
       return { status: 'success', error: '', result: action.result };
     case 'ERROR':
       return { status: 'error', error: action.error, result: null };
+    case 'SET_PART':
+      if (!state.result) return state;
+      return { ...state, result: { ...state.result, [action.part]: action.content } };
     default:
       return state;
   }
@@ -41,7 +45,11 @@ export default function Home() {
   const [botName, setBotName] = useState('น้องเอไอ');
   const [businessDescription, setBusinessDescription] = useState('');
   const [steps, setSteps] = useState(getDefaultSteps);
+  const [includeSummary, setIncludeSummary] = useState(true);
+  const [includeExampleAnswers, setIncludeExampleAnswers] = useState(true);
   const [generation, dispatch] = useReducer(generationReducer, initialGenerationState);
+  const [partLoading, setPartLoading] = useState<GeneratePart | null>(null);
+  const [partError, setPartError] = useState<{ part: GeneratePart; message: string } | null>(null);
 
   const providerInfo = getProviderInfo(provider);
   const isAuto = mode === 'auto';
@@ -50,6 +58,7 @@ export default function Home() {
 
   async function handleGenerate() {
     dispatch({ type: 'START' });
+    setPartError(null);
 
     const getinfoSteps = steps.filter((s) => s.enabled && s.section === 'getinfo');
     const summarySteps = steps.filter((s) => s.enabled && s.section === 'summary');
@@ -67,6 +76,8 @@ export default function Home() {
           businessDescription,
           getinfoSteps,
           summarySteps,
+          includeSummary,
+          includeExampleAnswers,
         }),
       });
 
@@ -76,6 +87,42 @@ export default function Home() {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'เกิดข้อผิดพลาด';
       dispatch({ type: 'ERROR', error: message });
+    }
+  }
+
+  // สั่งสร้างส่วนที่ข้ามไว้ (summary / example_answers) เพิ่มภายหลัง เป็น request แยกขนาดเล็ก
+  async function handleGeneratePart(part: GeneratePart) {
+    if (!generation.result) return;
+    setPartLoading(part);
+    setPartError(null);
+
+    const summarySteps = steps.filter((s) => s.enabled && s.section === 'summary');
+
+    try {
+      const res = await fetch('/api/generate-part', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider,
+          apiKey,
+          model,
+          part,
+          mode,
+          botName,
+          businessDescription,
+          summarySteps: mode === 'manual' ? summarySteps : [],
+          getinfo: generation.result.getinfo,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'เกิดข้อผิดพลาด');
+      dispatch({ type: 'SET_PART', part, content: data.content });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'เกิดข้อผิดพลาด';
+      setPartError({ part, message });
+    } finally {
+      setPartLoading(null);
     }
   }
 
@@ -174,6 +221,68 @@ export default function Home() {
             </span>
           )}
         </label>
+
+        <div className="mt-5">
+          <span className="block font-semibold mb-2">ส่วนเสริมที่ให้สร้างด้วย</span>
+          <div className="flex flex-wrap gap-3">
+            {[
+              {
+                title: 'Summary Prompt',
+                subtitle: 'Prompt สรุปรายการและส่งข้อมูลเข้าระบบ',
+                checked: includeSummary,
+                toggle: setIncludeSummary,
+              },
+              {
+                title: 'ตัวอย่างคำตอบ (Chat Step Automate)',
+                subtitle: 'ไฟล์ JSON สำหรับทดสอบบอทอัตโนมัติ',
+                checked: includeExampleAnswers,
+                toggle: setIncludeExampleAnswers,
+              },
+            ].map((opt) => (
+              <label
+                key={opt.title}
+                className={`flex cursor-pointer select-none items-center gap-3 rounded-xl border px-4 py-3 backdrop-blur-md transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] ${
+                  opt.checked
+                    ? 'border-[#01bffb]/70 bg-[#01bffb]/10 shadow-[0_4px_16px_rgba(1,191,251,0.25)]'
+                    : 'border-white/70 bg-white/40 shadow-[0_2px_8px_rgba(31,36,51,0.06)] hover:border-[#01bffb]/40 hover:bg-white/65'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  className="sr-only"
+                  checked={opt.checked}
+                  onChange={(e) => opt.toggle(e.target.checked)}
+                />
+                <span
+                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-colors ${
+                    opt.checked
+                      ? 'bg-gradient-to-br from-[#01bffb] to-[#0099cc] text-white shadow-[0_2px_6px_rgba(1,191,251,0.4)]'
+                      : 'border border-[#5b6472]/40 text-[#5b6472]'
+                  }`}
+                >
+                  {opt.checked ? (
+                    <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3.5 8.5 6.5 11.5 12.5 4.5" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <path d="M8 3.5v9M3.5 8h9" />
+                    </svg>
+                  )}
+                </span>
+                <span>
+                  <span className={`block text-[0.92rem] font-semibold ${opt.checked ? 'text-[#0099cc]' : 'text-[var(--text)]'}`}>
+                    {opt.title}
+                  </span>
+                  <span className="block text-[0.78rem] text-[var(--muted)]">{opt.subtitle}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+          <p className="mt-2 mb-0 text-[0.85rem] text-[var(--muted)]">
+            ไม่เลือกตอนนี้ก็สั่งสร้างเพิ่มภายหลังได้จากหน้าผลลัพธ์ — request เล็กลง ลดโอกาสติด rate limit
+          </p>
+        </div>
       </section>
 
       {!isAuto && (
@@ -191,7 +300,15 @@ export default function Home() {
 
       {generation.error && <div className="error-box">{generation.error}</div>}
 
-      {generation.result && <OutputPanel result={generation.result} botName={botName} />}
+      {generation.result && (
+        <OutputPanel
+          result={generation.result}
+          botName={botName}
+          onGeneratePart={handleGeneratePart}
+          partLoading={partLoading}
+          partError={partError}
+        />
+      )}
     </main>
   );
 }

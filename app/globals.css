@@ -1,3 +1,7 @@
+/* Tailwind v4 แบบ utilities-only (ไม่ import preflight เพื่อไม่ให้รีเซ็ตสไตล์เดิมของแอป) */
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+
 :root {
   --text: #1f2433;
   --muted: #5b6472;
@@ -515,6 +519,30 @@ textarea {
   -webkit-backdrop-filter: blur(10px);
   border-radius: 14px;
   padding: 16px;
+}
+
+/* Missing part (ส่วนที่ผู้ใช้เลือกไม่สร้าง) */
+.missing-box {
+  border: 1.5px dashed rgba(91, 100, 114, 0.35);
+  background: var(--glass-bg-soft);
+  border-radius: 14px;
+  padding: 22px 16px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.missing-box p {
+  margin: 0 0 6px;
+}
+
+.missing-box p:last-child {
+  margin-bottom: 0;
+}
+
+.output-actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
 }
 
 /* Example answers list (Chat Step Automate) */

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { GenerateResult } from '@/lib/types';
+import type { GenerateResult, GeneratePart } from '@/lib/types';
 
 interface OutputBlockProps {
   title: string;
@@ -118,30 +118,82 @@ function ExampleAnswersBlock({ title, content, filename, note }: ExampleAnswersB
   );
 }
 
+interface MissingPartBlockProps {
+  title: string;
+  part: GeneratePart;
+  loading: boolean;
+  error: string | null;
+  onGenerate: (part: GeneratePart) => void;
+}
+
+// กล่องแสดงแทนส่วนที่ผู้ใช้เลือกไม่สร้างไว้ พร้อมปุ่มสั่งสร้างเพิ่มภายหลัง
+function MissingPartBlock({ title, part, loading, error, onGenerate }: MissingPartBlockProps) {
+  return (
+    <div className="output-block">
+      <div className="output-header">
+        <h3>{title}</h3>
+        <div className="output-actions">
+          <button onClick={() => onGenerate(part)} disabled={loading}>
+            {loading ? 'กำลังสร้าง...' : '+ สร้างส่วนนี้'}
+          </button>
+        </div>
+      </div>
+      <div className="missing-box">
+        <p>ส่วนนี้ถูกข้ามไว้ตามที่คุณเลือกตอนสร้าง Prompt</p>
+        <p className="hint">กดปุ่ม "+ สร้างส่วนนี้" เพื่อให้ AI สร้างเพิ่มจาก GetInfo Prompt ที่ได้มา (เป็น request แยกขนาดเล็ก)</p>
+      </div>
+      {error && <div className="error-box">{error}</div>}
+    </div>
+  );
+}
+
 interface OutputPanelProps {
   result: GenerateResult;
   botName: string;
+  onGeneratePart: (part: GeneratePart) => void;
+  partLoading: GeneratePart | null;
+  partError: { part: GeneratePart; message: string } | null;
 }
 
-export default function OutputPanel({ result, botName }: OutputPanelProps) {
+export default function OutputPanel({ result, botName, onGeneratePart, partLoading, partError }: OutputPanelProps) {
   const safeName = (botName || 'bot').replace(/[^a-zA-Z0-9ก-๙_-]/g, '_');
 
   return (
     <section className="card">
       <h2>ผลลัพธ์</h2>
       <OutputBlock title="GetInfo Prompt" content={result.getinfo} filename={`${safeName}_getinfo.txt`} />
-      <OutputBlock title="Summary Prompt" content={result.summary} filename={`${safeName}_summary.txt`} />
+      {result.summary !== null ? (
+        <OutputBlock title="Summary Prompt" content={result.summary} filename={`${safeName}_summary.txt`} />
+      ) : (
+        <MissingPartBlock
+          title="Summary Prompt"
+          part="summary"
+          loading={partLoading === 'summary'}
+          error={partError?.part === 'summary' ? partError.message : null}
+          onGenerate={onGeneratePart}
+        />
+      )}
       <OutputBlock
         title="Check Parameter Template"
         content={result.check_parameter}
         filename={`${safeName}_check_parameter.txt`}
       />
-      <ExampleAnswersBlock
-        title="ตัวอย่างคำตอบ (Chat Step Automate)"
-        content={result.example_answers}
-        filename={`${safeName}_chat_step_automate.json`}
-        note="ตัวอย่างคำตอบของลูกค้าสำหรับใช้กับ Chat Step Automate — กดคัดลอกรายข้อเพื่อนำไปวางได้เลย หรือดาวน์โหลดทั้งชุดเป็นไฟล์ .json"
-      />
+      {result.example_answers !== null ? (
+        <ExampleAnswersBlock
+          title="ตัวอย่างคำตอบ (Chat Step Automate)"
+          content={result.example_answers}
+          filename={`${safeName}_chat_step_automate.json`}
+          note="ตัวอย่างคำตอบของลูกค้าสำหรับใช้กับ Chat Step Automate — กดคัดลอกรายข้อเพื่อนำไปวางได้เลย หรือดาวน์โหลดทั้งชุดเป็นไฟล์ .json"
+        />
+      ) : (
+        <MissingPartBlock
+          title="ตัวอย่างคำตอบ (Chat Step Automate)"
+          part="example_answers"
+          loading={partLoading === 'example_answers'}
+          error={partError?.part === 'example_answers' ? partError.message : null}
+          onGenerate={onGeneratePart}
+        />
+      )}
     </section>
   );
 }
