@@ -4,6 +4,7 @@ export interface GenerateResult {
   getinfo: string;
   summary: string;
   check_parameter: string;
+  example_answers: string;
 }
 
 export interface GenerateRequestBody {

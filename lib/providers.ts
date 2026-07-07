@@ -52,17 +52,21 @@ async function fetchWithTimeout(url: string, options: RequestInit): Promise<Resp
   }
 }
 
+const DEFAULT_MAX_TOKENS = 8000;
+
 interface CallProviderParams {
   provider: string;
   apiKey: string;
   model?: string;
   systemPrompt: string;
   userPrompt: string;
+  maxTokens?: number;
 }
 
-export async function callProvider({ provider, apiKey, model, systemPrompt, userPrompt }: CallProviderParams): Promise<string> {
+export async function callProvider({ provider, apiKey, model, systemPrompt, userPrompt, maxTokens }: CallProviderParams): Promise<string> {
   const info = getProviderInfo(provider);
   const resolvedModel = model?.trim() || info.defaultModel;
+  const resolvedMaxTokens = maxTokens ?? DEFAULT_MAX_TOKENS;
 
   switch (provider) {
     case 'groq':
@@ -72,6 +76,7 @@ export async function callProvider({ provider, apiKey, model, systemPrompt, user
         model: resolvedModel,
         systemPrompt,
         userPrompt,
+        maxTokens: resolvedMaxTokens,
       });
     case 'openai':
       return callOpenAICompatible({
@@ -80,9 +85,10 @@ export async function callProvider({ provider, apiKey, model, systemPrompt, user
         model: resolvedModel,
         systemPrompt,
         userPrompt,
+        maxTokens: resolvedMaxTokens,
       });
     case 'gemini':
-      return callGemini({ apiKey, model: resolvedModel, systemPrompt, userPrompt });
+      return callGemini({ apiKey, model: resolvedModel, systemPrompt, userPrompt, maxTokens: resolvedMaxTokens });
     default:
       throw new Error(`ไม่รู้จัก AI Provider: ${provider}`);
   }
@@ -94,25 +100,44 @@ interface OpenAICompatibleParams {
   model: string;
   systemPrompt: string;
   userPrompt: string;
+  maxTokens: number;
 }
 
-async function callOpenAICompatible({ url, apiKey, model, systemPrompt, userPrompt }: OpenAICompatibleParams): Promise<string> {
-  const res = await fetchWithTimeout(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: 0.4,
-      max_tokens: 8000,
-    }),
-  });
+// รอได้สูงสุดต่อครั้งเมื่อโดน rate limit (429) ก่อน retry
+const MAX_RETRY_WAIT_MS = 30000;
+const MAX_RATE_LIMIT_RETRIES = 2;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function callOpenAICompatible({ url, apiKey, model, systemPrompt, userPrompt, maxTokens }: OpenAICompatibleParams): Promise<string> {
+  let res: Response;
+  for (let attempt = 0; ; attempt++) {
+    res = await fetchWithTimeout(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.4,
+        max_tokens: maxTokens,
+      }),
+    });
+
+    if (res.status === 429 && attempt < MAX_RATE_LIMIT_RETRIES) {
+      const retryAfterSec = Number(res.headers.get('retry-after')) || 10;
+      await sleep(Math.min(retryAfterSec * 1000 + 500, MAX_RETRY_WAIT_MS));
+      continue;
+    }
+    break;
+  }
 
   if (!res.ok) {
     const errBody = await res.text();
@@ -130,9 +155,10 @@ interface GeminiParams {
   model: string;
   systemPrompt: string;
   userPrompt: string;
+  maxTokens: number;
 }
 
-async function callGemini({ apiKey, model, systemPrompt, userPrompt }: GeminiParams): Promise<string> {
+async function callGemini({ apiKey, model, systemPrompt, userPrompt, maxTokens }: GeminiParams): Promise<string> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
   const res = await fetchWithTimeout(url, {
     method: 'POST',
@@ -140,7 +166,7 @@ async function callGemini({ apiKey, model, systemPrompt, userPrompt }: GeminiPar
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: systemPrompt }] },
       contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-      generationConfig: { temperature: 0.4, maxOutputTokens: 8192 },
+      generationConfig: { temperature: 0.4, maxOutputTokens: maxTokens },
     }),
   });
 
