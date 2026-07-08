@@ -140,7 +140,7 @@ function MissingPartBlock({ title, part, loading, error, onGenerate }: MissingPa
       </div>
       <div className="missing-box">
         <p>ส่วนนี้ถูกข้ามไว้ตามที่คุณเลือกตอนสร้าง Prompt</p>
-        <p className="hint">กดปุ่ม "+ สร้างส่วนนี้" เพื่อให้ AI สร้างเพิ่มจาก GetInfo Prompt ที่ได้มา (เป็น request แยกขนาดเล็ก)</p>
+        <p className="hint">กดปุ่ม "+ สร้างส่วนนี้" เพื่อให้ AI สร้างเพิ่มจาก GetInfo Prompt ที่ได้มา</p>
       </div>
       {error && <div className="error-box">{error}</div>}
     </div>

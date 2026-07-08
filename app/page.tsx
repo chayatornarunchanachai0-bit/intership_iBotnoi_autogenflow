@@ -5,6 +5,7 @@ import StepList from './components/StepList';
 import OutputPanel from './components/OutputPanel';
 import { PROVIDERS, getProviderInfo } from '@/lib/providers';
 import { getDefaultSteps } from '@/lib/steps';
+import { playNotifySound } from '@/lib/notify';
 import type { GenerateResult, GeneratePart } from '@/lib/types';
 
 interface GenerationState {
@@ -84,9 +85,10 @@ export default function Home() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'เกิดข้อผิดพลาด');
       dispatch({ type: 'SUCCESS', result: data });
+      playNotifySound();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'เกิดข้อผิดพลาด';
-      dispatch({ type: 'ERROR', error: message });
+      console.error('handleGenerate failed:', err);
+      dispatch({ type: 'ERROR', error: 'ไม่สามารถ generate ได้ตอนนี้' });
     }
   }
 
@@ -118,9 +120,10 @@ export default function Home() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'เกิดข้อผิดพลาด');
       dispatch({ type: 'SET_PART', part, content: data.content });
+      playNotifySound();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'เกิดข้อผิดพลาด';
-      setPartError({ part, message });
+      console.error('handleGeneratePart failed:', err);
+      setPartError({ part, message: 'ไม่สามารถ generate ได้ตอนนี้' });
     } finally {
       setPartLoading(null);
     }
@@ -280,7 +283,7 @@ export default function Home() {
             ))}
           </div>
           <p className="mt-2 mb-0 text-[0.85rem] text-[var(--muted)]">
-            ไม่เลือกตอนนี้ก็สั่งสร้างเพิ่มภายหลังได้จากหน้าผลลัพธ์ — request เล็กลง ลดโอกาสติด rate limit
+            สามารถสร้างเพิ่มภายหลังได้
           </p>
         </div>
       </section>
