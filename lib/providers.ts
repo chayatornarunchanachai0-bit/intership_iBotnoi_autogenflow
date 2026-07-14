@@ -24,7 +24,7 @@ export const PROVIDERS: ProviderInfo[] = [
   {
     id: 'gemini',
     label: 'Google Gemini',
-    defaultModel: 'gemini-2.5-flash',
+    defaultModel: 'gemini-3.5-flash',
     keyPlaceholder: 'AIza...',
     helpText: 'รับ API Key ได้ที่ aistudio.google.com/app/apikey',
   },
@@ -65,7 +65,7 @@ interface CallProviderParams {
 
 export async function callProvider({ provider, apiKey, model, systemPrompt, userPrompt, maxTokens }: CallProviderParams): Promise<string> {
   const info = getProviderInfo(provider);
-  const resolvedModel = model?.trim() || info.defaultModel;
+  const resolvedModel = model?.trim().toLowerCase().replace(/\s+/g, '-') || info.defaultModel;
   const resolvedMaxTokens = maxTokens ?? DEFAULT_MAX_TOKENS;
 
   switch (provider) {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useReducer, useState } from 'react';
+import { useReducer, useState, useRef, useEffect } from 'react';
 import StepList from './components/StepList';
 import OutputPanel from './components/OutputPanel';
 import { PROVIDERS, getProviderInfo } from '@/lib/providers';
@@ -46,16 +46,59 @@ export default function Home() {
   const [botName, setBotName] = useState('น้องเอไอ');
   const [businessDescription, setBusinessDescription] = useState('');
   const [steps, setSteps] = useState(getDefaultSteps);
-  const [includeSummary, setIncludeSummary] = useState(true);
-  const [includeExampleAnswers, setIncludeExampleAnswers] = useState(true);
+  const [includeSummary, setIncludeSummary] = useState(false);
+  const [includeExampleAnswers, setIncludeExampleAnswers] = useState(false);
   const [generation, dispatch] = useReducer(generationReducer, initialGenerationState);
   const [partLoading, setPartLoading] = useState<GeneratePart | null>(null);
   const [partError, setPartError] = useState<{ part: GeneratePart; message: string } | null>(null);
+
+  const [fetchedModels, setFetchedModels] = useState<string[]>([]);
+  const [fetchingModels, setFetchingModels] = useState(false);
+  const [modelMessage, setModelMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const providerInfo = getProviderInfo(provider);
   const isAuto = mode === 'auto';
   const autoModeMissingDescription = isAuto && !businessDescription.trim();
   const loading = generation.status === 'loading';
+
+  async function handleFetchModels() {
+    if (!apiKey.trim()) return;
+    setFetchingModels(true);
+    setModelMessage(null);
+    try {
+      const res = await fetch('/api/models', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider, apiKey }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'ไม่สามารถดึงข้อมูลโมเดลได้');
+      }
+      setFetchedModels(data.models || []);
+      setModelMessage({ type: 'success', text: `ดึงข้อมูลสำเร็จ! พบ ${data.models?.length || 0} โมเดล` });
+    } catch (err: any) {
+      console.error(err);
+      setModelMessage({ type: 'error', text: err.message || 'เกิดข้อผิดพลาดในการดึงข้อมูล' });
+    } finally {
+      setFetchingModels(false);
+    }
+  }
 
   async function handleGenerate() {
     dispatch({ type: 'START' });
@@ -146,6 +189,8 @@ export default function Home() {
               onChange={(e) => {
                 setProvider(e.target.value);
                 setModel('');
+                setFetchedModels([]);
+                setModelMessage(null);
               }}
             >
               {PROVIDERS.map((p) => (
@@ -161,17 +206,63 @@ export default function Home() {
               type="password"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              placeholder={providerInfo.keyPlaceholder}
+              placeholder="กรุณาใช้ API Key ของคุณ"
             />
           </label>
           <label>
-            Model (ไม่บังคับ)
-            <input
-              type="text"
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              placeholder={providerInfo.defaultModel}
-            />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>Model (ไม่บังคับ)</span>
+              {apiKey.trim() && (
+                <button
+                  type="button"
+                  onClick={handleFetchModels}
+                  disabled={fetchingModels}
+                  className="check-model-btn"
+                >
+                  {fetchingModels ? 'Checking...' : 'Check Model'}
+                </button>
+              )}
+            </div>
+            <div ref={dropdownRef} style={{ position: 'relative', width: '100%' }}>
+              <input
+                type="text"
+                value={model}
+                onChange={(e) => {
+                  setModel(e.target.value);
+                  setIsOpen(true);
+                }}
+                onFocus={() => setIsOpen(true)}
+                placeholder="เลือกหรือพิมพ์โมเดลที่ต้องการใช้"
+                style={{ width: '100%' }}
+              />
+              {isOpen && fetchedModels.length > 0 && (
+                <ul className="custom-dropdown">
+                  {fetchedModels
+                    .filter((m) => m.toLowerCase().includes(model.toLowerCase()))
+                    .map((m) => (
+                      <li
+                        key={m}
+                        onClick={() => {
+                          setModel(m);
+                          setIsOpen(false);
+                        }}
+                      >
+                        {m}
+                      </li>
+                    ))}
+                  {fetchedModels.filter((m) => m.toLowerCase().includes(model.toLowerCase())).length === 0 && (
+                    <li style={{ color: 'var(--muted)', cursor: 'default', fontStyle: 'italic', padding: '10px 14px' }}>
+                      ไม่มีโมเดลที่ค้นหา (ใช้ตามที่ระบุ)
+                    </li>
+                  )}
+                </ul>
+              )}
+            </div>
+            {modelMessage && (
+              <span style={{ color: modelMessage.type === 'error' ? 'var(--danger-text)' : '#0099cc', marginTop: 4, fontWeight: 'normal', fontSize: '0.8rem' }}>
+                {modelMessage.text}
+              </span>
+            )}
           </label>
         </div>
         <p className="hint">

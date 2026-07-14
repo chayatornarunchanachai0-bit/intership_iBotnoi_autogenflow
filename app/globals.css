@@ -447,6 +447,35 @@ textarea {
   cursor: not-allowed;
 }
 
+.check-model-btn {
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 8px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--primary-dark);
+  box-shadow:
+    0 1px 5px rgba(31, 36, 51, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+
+.check-model-btn:hover:not(:disabled) {
+  border-color: rgba(1, 191, 251, 0.55);
+  background: rgba(255, 255, 255, 0.85);
+  transform: translateY(-1px);
+}
+
+.check-model-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  color: var(--muted);
+}
+
 .error-box {
   background: var(--danger-bg);
   color: var(--danger-text);
@@ -605,3 +634,55 @@ textarea {
   background: rgba(1, 191, 251, 0.16);
   color: #9fe5fe;
 }
+
+/* Custom Dropdown / Combobox Menu */
+.custom-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 999;
+  margin-top: 6px;
+  padding: 6px 0;
+  list-style: none;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: 
+    0 10px 30px rgba(31, 38, 135, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+/* Custom Scrollbar for Dropdown */
+.custom-dropdown::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-dropdown::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-dropdown::-webkit-scrollbar-thumb {
+  background: rgba(91, 100, 114, 0.25);
+  border-radius: 10px;
+}
+.custom-dropdown::-webkit-scrollbar-thumb:hover {
+  background: rgba(91, 100, 114, 0.4);
+}
+
+.custom-dropdown li {
+  padding: 10px 14px;
+  font-size: 0.9rem;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  text-align: left;
+}
+
+.custom-dropdown li:hover {
+  background: linear-gradient(135deg, rgba(1, 191, 251, 0.12), rgba(167, 139, 250, 0.12));
+  color: var(--primary-dark);
+}
+
