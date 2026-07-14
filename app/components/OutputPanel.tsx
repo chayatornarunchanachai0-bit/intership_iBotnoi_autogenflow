@@ -134,13 +134,13 @@ function MissingPartBlock({ title, part, loading, error, onGenerate }: MissingPa
         <h3>{title}</h3>
         <div className="output-actions">
           <button onClick={() => onGenerate(part)} disabled={loading}>
-            {loading ? 'กำลังสร้าง...' : '+ สร้างส่วนนี้'}
+            {loading ? 'กำลังสร้าง...' : 'กดเพื่อสร้างส่วนนี้'}
           </button>
         </div>
       </div>
       <div className="missing-box">
         <p>ส่วนนี้ถูกข้ามไว้ตามที่คุณเลือกตอนสร้าง Prompt</p>
-        <p className="hint">กดปุ่ม "+ สร้างส่วนนี้" เพื่อให้ AI สร้างเพิ่มจาก GetInfo Prompt ที่ได้มา</p>
+        <p className="hint">กดปุ่ม "กดเพื่อสร้างส่วนนี้" เพื่อให้ AI สร้างเพิ่มจาก GetInfo Prompt ที่ได้มา</p>
       </div>
       {error && <div className="error-box">{error}</div>}
     </div>

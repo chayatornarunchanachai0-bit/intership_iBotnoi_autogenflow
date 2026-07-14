@@ -1,10 +1,8 @@
 'use client';
 
 import { useReducer, useState, useRef, useEffect } from 'react';
-import StepList from './components/StepList';
 import OutputPanel from './components/OutputPanel';
 import { PROVIDERS, getProviderInfo } from '@/lib/providers';
-import { getDefaultSteps } from '@/lib/steps';
 import { playNotifySound } from '@/lib/notify';
 import type { GenerateResult, GeneratePart } from '@/lib/types';
 
@@ -42,10 +40,8 @@ export default function Home() {
   const [provider, setProvider] = useState('groq');
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('');
-  const [mode, setMode] = useState<'auto' | 'manual'>('auto');
   const [botName, setBotName] = useState('น้องเอไอ');
   const [businessDescription, setBusinessDescription] = useState('');
-  const [steps, setSteps] = useState(getDefaultSteps);
   const [includeSummary, setIncludeSummary] = useState(false);
   const [includeExampleAnswers, setIncludeExampleAnswers] = useState(false);
   const [generation, dispatch] = useReducer(generationReducer, initialGenerationState);
@@ -72,8 +68,7 @@ export default function Home() {
   }, []);
 
   const providerInfo = getProviderInfo(provider);
-  const isAuto = mode === 'auto';
-  const autoModeMissingDescription = isAuto && !businessDescription.trim();
+  const missingDescription = !businessDescription.trim();
   const loading = generation.status === 'loading';
 
   async function handleFetchModels() {
@@ -104,9 +99,6 @@ export default function Home() {
     dispatch({ type: 'START' });
     setPartError(null);
 
-    const getinfoSteps = steps.filter((s) => s.enabled && s.section === 'getinfo');
-    const summarySteps = steps.filter((s) => s.enabled && s.section === 'summary');
-
     try {
       const res = await fetch('/api/generate', {
         method: 'POST',
@@ -115,11 +107,8 @@ export default function Home() {
           provider,
           apiKey,
           model,
-          mode,
           botName,
           businessDescription,
-          getinfoSteps,
-          summarySteps,
           includeSummary,
           includeExampleAnswers,
         }),
@@ -141,8 +130,6 @@ export default function Home() {
     setPartLoading(part);
     setPartError(null);
 
-    const summarySteps = steps.filter((s) => s.enabled && s.section === 'summary');
-
     try {
       const res = await fetch('/api/generate-part', {
         method: 'POST',
@@ -152,10 +139,8 @@ export default function Home() {
           apiKey,
           model,
           part,
-          mode,
           botName,
           businessDescription,
-          summarySteps: mode === 'manual' ? summarySteps : [],
           getinfo: generation.result.getinfo,
         }),
       });
@@ -284,36 +269,17 @@ export default function Home() {
           </label>
         </div>
 
-        <div className="mode-toggle">
-          <label className={`mode-option ${isAuto ? 'active' : ''}`}>
-            <input type="radio" name="mode" value="auto" checked={isAuto} onChange={() => setMode('auto')} />
-            <div>
-              <strong>ให้ AI ออกแบบ Flow ให้อัตโนมัติ</strong>
-              <p>บอกแค่ว่าร้าน/บริการของคุณคืออะไร ขายอะไร AI จะออกแบบ Flow และตัวแปรให้เองทั้งหมด</p>
-            </div>
-          </label>
-          <label className={`mode-option ${!isAuto ? 'active' : ''}`}>
-            <input type="radio" name="mode" value="manual" checked={!isAuto} onChange={() => setMode('manual')} />
-            <div>
-              <strong>ออกแบบ Flow เอง</strong>
-              <p>เลือก เปิด/ปิด และจัดเรียง Step ทั้ง 11 ขั้นตอนได้แบบละเอียดเอง</p>
-            </div>
-          </label>
-        </div>
-
         <label className="block">
-          รายละเอียดธุรกิจ {isAuto && <span className="required-mark">*</span>}
+          รายละเอียดธุรกิจ <span className="required-mark">*</span>
           <textarea
             value={businessDescription}
             onChange={(e) => setBusinessDescription(e.target.value)}
-            rows={isAuto ? 5 : 3}
+            rows={5}
             placeholder="เช่น ร้านอาหารญี่ปุ่น เดลิเวอรี่ มีเมนูซูชิ ราคาตามเซ็ต มีค่าจัดส่งตามระยะทาง"
           />
-          {isAuto && (
-            <span className="hint" style={{ marginTop: 4 }}>
-              จำเป็นสำหรับโหมดนี้ — อธิบายให้ละเอียดเพื่อให้ AI ออกแบบ Flow ได้ตรงกับธุรกิจของคุณมากที่สุด
-            </span>
-          )}
+          <span className="hint" style={{ marginTop: 4 }}>
+            อธิบายให้ละเอียดเพื่อให้ AI ออกแบบ Flow ได้ตรงกับธุรกิจของคุณมากที่สุด
+          </span>
         </label>
 
         <div className="mt-5">
@@ -379,15 +345,8 @@ export default function Home() {
         </div>
       </section>
 
-      {!isAuto && (
-        <section className="card">
-          <h2>3. ออกแบบ Flow</h2>
-          <StepList steps={steps} setSteps={setSteps} />
-        </section>
-      )}
-
       <div className="actions">
-        <button className="generate-btn" onClick={handleGenerate} disabled={loading || autoModeMissingDescription}>
+        <button className="generate-btn" onClick={handleGenerate} disabled={loading || missingDescription}>
           {loading ? 'กำลังสร้าง Prompt...' : '✨ สร้าง Prompt'}
         </button>
       </div>

@@ -4,9 +4,7 @@ import { SECTION_MARKERS } from '@/lib/constants';
 import { normalizeExampleAnswers } from '@/lib/outputParsing';
 import {
   SYSTEM_PROMPT_EXAMPLE_ANSWERS,
-  buildSystemPromptManual,
   buildSystemPromptAuto,
-  buildUserPrompt,
   buildUserPromptAuto,
   buildExampleAnswersPrompt,
 } from '@/lib/promptBuilder';
@@ -20,7 +18,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'รูปแบบข้อมูลที่ส่งมาไม่ถูกต้อง' }, { status: 400 });
   }
 
-  const { provider, apiKey, model, botName, businessDescription, mode, getinfoSteps, summarySteps } = body;
+  const { provider, apiKey, model, botName, businessDescription } = body;
   const includeSummary = body.includeSummary !== false;
   const includeExampleAnswers = body.includeExampleAnswers !== false;
 
@@ -30,33 +28,12 @@ export async function POST(request: Request) {
   if (!botName?.trim()) {
     return NextResponse.json({ error: 'กรุณากรอกชื่อบอท (BOT_NAME)' }, { status: 400 });
   }
-
-  const isAuto = mode === 'auto';
-  let systemPrompt: string;
-  let userPrompt: string;
-
-  if (isAuto) {
-    if (!businessDescription?.trim()) {
-      return NextResponse.json(
-        { error: 'กรุณาอธิบายธุรกิจของคุณก่อน เพื่อให้ AI ออกแบบ Flow ให้' },
-        { status: 400 },
-      );
-    }
-    systemPrompt = buildSystemPromptAuto(includeSummary);
-    userPrompt = buildUserPromptAuto({ botName, businessDescription, includeSummary });
-  } else {
-    if (!getinfoSteps?.length && !summarySteps?.length) {
-      return NextResponse.json({ error: 'กรุณาเปิดใช้งานอย่างน้อย 1 Step' }, { status: 400 });
-    }
-    systemPrompt = buildSystemPromptManual(includeSummary);
-    userPrompt = buildUserPrompt({
-      botName,
-      businessDescription,
-      getinfoSteps: getinfoSteps ?? [],
-      summarySteps: summarySteps ?? [],
-      includeSummary,
-    });
+  if (!businessDescription?.trim()) {
+    return NextResponse.json({ error: 'กรุณาอธิบายธุรกิจของคุณเพื่อให้ AI ออกแบบ Flow ให้' }, { status: 400 });
   }
+
+  const systemPrompt = buildSystemPromptAuto(includeSummary);
+  const userPrompt = buildUserPromptAuto({ botName, businessDescription, includeSummary });
 
   try {
     // รอบที่ 1: สร้าง prompt ส่วนหลัก (getinfo, check_parameter และ summary ถ้าเลือกไว้)

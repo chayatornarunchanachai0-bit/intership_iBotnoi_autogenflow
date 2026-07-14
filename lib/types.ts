@@ -1,5 +1,3 @@
-import type { Step } from './steps';
-
 export interface GenerateResult {
   getinfo: string;
   // null = ผู้ใช้เลือกไม่สร้างส่วนนี้ (สร้างเพิ่มภายหลังได้ผ่าน /api/generate-part)
@@ -14,9 +12,6 @@ export interface GenerateRequestBody {
   model?: string;
   botName: string;
   businessDescription?: string;
-  mode: 'auto' | 'manual';
-  getinfoSteps?: Step[];
-  summarySteps?: Step[];
   includeSummary?: boolean; // default true
   includeExampleAnswers?: boolean; // default true
 }
@@ -30,7 +25,5 @@ export interface GeneratePartRequestBody {
   part: GeneratePart;
   botName: string;
   businessDescription?: string;
-  mode: 'auto' | 'manual';
-  summarySteps?: Step[];
   getinfo: string;
 }

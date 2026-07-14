@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'รูปแบบข้อมูลที่ส่งมาไม่ถูกต้อง' }, { status: 400 });
   }
 
-  const { provider, apiKey, model, part, botName, businessDescription, mode, summarySteps, getinfo } = body;
+  const { provider, apiKey, model, part, botName, businessDescription, getinfo } = body;
 
   if (!provider || !apiKey?.trim()) {
     return NextResponse.json({ error: 'กรุณาเลือก AI Provider และกรอก API Key' }, { status: 400 });
@@ -35,17 +35,14 @@ export async function POST(request: Request) {
     let content: string;
 
     if (part === 'summary') {
-      const steps = summarySteps ?? [];
-      const useManualSteps = mode === 'manual' && steps.length > 0;
       const raw = await callProvider({
         provider,
         apiKey,
         model,
-        systemPrompt: buildSummaryPartSystemPrompt(useManualSteps),
+        systemPrompt: buildSummaryPartSystemPrompt(),
         userPrompt: buildSummaryPartUserPrompt({
           botName,
           businessDescription,
-          summarySteps: useManualSteps ? steps : [],
           getinfo,
         }),
         maxTokens: 3000,
