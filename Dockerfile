@@ -1,21 +1,79 @@
 FROM node:22-alpine
 WORKDIR /app
-COPY frontend-part-0.b64 /tmp/part0
-COPY frontend-part-1.b64 /tmp/part1
-COPY frontend-part-2.b64 /tmp/part2
-COPY frontend-part-3.b64 /tmp/part3
-COPY frontend-part-4.b64 /tmp/part4
-COPY frontend-part-5.b64 /tmp/part5
-COPY frontend-part-6a.b64 /tmp/part6a
-COPY frontend-part-6b.b64 /tmp/part6b
-COPY frontend-part-7.b64 /tmp/part7
-RUN cat /tmp/part0 /tmp/part1 /tmp/part2 /tmp/part3 /tmp/part4 /tmp/part5 /tmp/part6a /tmp/part6b /tmp/part7 > /tmp/app.b64
+COPY botops-frontend.tar.gz.b64 /tmp/app.b64
 RUN apk add --no-cache python3
 RUN python3 - <<'PY'
 import base64, tarfile, io
 raw=base64.b64decode(open('/tmp/app.b64','rb').read())
 tarfile.open(fileobj=io.BytesIO(raw), mode='r:gz').extractall('/app')
 PY
+RUN mkdir -p '/app/app/api/proxy/[...path]' && cat > '/app/app/api/proxy/[...path]/route.ts' <<'TS'
+import { NextRequest, NextResponse } from "next/server";
+
+async function forward(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
+  const { path } = await context.params;
+  const base = process.env.BOTOPS_BACKEND_URL;
+  const key = process.env.BOTOPS_API_KEY;
+
+  if (!base || !key) {
+    return NextResponse.json({ detail: "Proxy is not configured" }, { status: 500 });
+  }
+
+  const incoming = new URL(request.url);
+  const target = new URL(path.join("/") + incoming.search, base.endsWith("/") ? base : base + "/");
+
+  const headers = new Headers();
+  const contentType = request.headers.get("content-type");
+  if (contentType) headers.set("content-type", contentType);
+  headers.set("x-botops-key", key);
+
+  const method = request.method;
+  const body = method === "GET" || method === "HEAD" ? undefined : await request.arrayBuffer();
+
+  const upstream = await fetch(target, {
+    method,
+    headers,
+    body,
+    cache: "no-store",
+  });
+
+  const responseHeaders = new Headers();
+  const upstreamType = upstream.headers.get("content-type");
+  const disposition = upstream.headers.get("content-disposition");
+  if (upstreamType) responseHeaders.set("content-type", upstreamType);
+  if (disposition) responseHeaders.set("content-disposition", disposition);
+
+  return new NextResponse(upstream.body, {
+    status: upstream.status,
+    headers: responseHeaders,
+  });
+}
+
+export const GET = forward;
+export const POST = forward;
+export const PUT = forward;
+export const PATCH = forward;
+export const DELETE = forward;
+TS
+RUN cat > /app/next.config.mjs <<'JS'
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  async headers() {
+    return [{
+      source: "/(.*)",
+      headers: [
+        { key: "X-Content-Type-Options", value: "nosniff" },
+        { key: "X-Frame-Options", value: "DENY" },
+        { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+        { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+        { key: "Content-Security-Policy", value: "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" },
+        { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" }
+      ]
+    }];
+  }
+};
+export default nextConfig;
+JS
 RUN npm install
 RUN npm run build
 CMD ["sh","-c","npm run start -- -H 0.0.0.0 -p ${PORT:-3000}"]
