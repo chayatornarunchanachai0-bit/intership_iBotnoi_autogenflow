@@ -16,6 +16,9 @@ import base64, tarfile, io
 raw=base64.b64decode(open('/tmp/app.b64','rb').read())
 tarfile.open(fileobj=io.BytesIO(raw), mode='r:gz').extractall('/app')
 PY
+RUN mkdir -p '/app/app/api/proxy/[...path]'
+COPY botops-proxy-route.ts '/app/app/api/proxy/[...path]/route.ts'
+COPY botops-next.config.mjs /app/next.config.mjs
 RUN npm install
 RUN npm run build
 CMD ["sh","-c","npm run start -- -H 0.0.0.0 -p ${PORT:-3000}"]
