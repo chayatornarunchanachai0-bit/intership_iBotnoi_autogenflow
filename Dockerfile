@@ -33,6 +33,23 @@ new='''        if not project:
 if old in s:
     s=s.replace(old,new,1)
 
+# Fix create-project FK ordering.
+# Project must be flushed before its default BotConfig is inserted, otherwise
+# PostgreSQL can reject the child row with a foreign-key violation.
+create_patterns = [
+    ('db.add(project)\n    db.add(BotConfigDB(', 'db.add(project)\n    db.flush()\n    db.add(BotConfigDB('),
+    ('db.add(new_project)\n    db.add(BotConfigDB(', 'db.add(new_project)\n    db.flush()\n    db.add(BotConfigDB('),
+    ('db.add(project_db)\n    db.add(BotConfigDB(', 'db.add(project_db)\n    db.flush()\n    db.add(BotConfigDB('),
+]
+patched_create = False
+for old_create, new_create in create_patterns:
+    if old_create in s:
+        s=s.replace(old_create,new_create,1)
+        patched_create=True
+        break
+if not patched_create:
+    raise SystemExit('Create-project insert sequence not found; refusing to build an unpatched backend')
+
 # Security: strict CORS, server-to-server API key, baseline response headers.
 s=s.replace('from fastapi.responses import StreamingResponse',
             'from fastapi.responses import StreamingResponse, JSONResponse')
