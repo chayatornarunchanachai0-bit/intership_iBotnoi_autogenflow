@@ -1,7 +1,14 @@
 FROM node:22-alpine
 WORKDIR /app
-COPY botops-frontend.tar.gz.b64 /tmp/app.b64
-RUN node -e "const fs=require('fs'),zlib=require('zlib'),tar=require('tar');" 2>/dev/null || true
+COPY frontend-part-0.b64 /tmp/part0
+COPY frontend-part-1.b64 /tmp/part1
+COPY frontend-part-2.b64 /tmp/part2
+COPY frontend-part-3.b64 /tmp/part3
+COPY frontend-part-4.b64 /tmp/part4
+COPY frontend-part-5.b64 /tmp/part5
+COPY frontend-part-6.b64 /tmp/part6
+COPY frontend-part-7.b64 /tmp/part7
+RUN cat /tmp/part0 /tmp/part1 /tmp/part2 /tmp/part3 /tmp/part4 /tmp/part5 /tmp/part6 /tmp/part7 > /tmp/app.b64
 RUN apk add --no-cache python3
 RUN python3 - <<'PY'
 import base64, tarfile, io
