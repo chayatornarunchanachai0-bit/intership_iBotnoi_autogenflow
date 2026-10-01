@@ -34,21 +34,29 @@ if old in s:
     s=s.replace(old,new,1)
 
 # Fix create-project FK ordering.
-# Project must be flushed before its default BotConfig is inserted, otherwise
-# PostgreSQL can reject the child row with a foreign-key violation.
-create_patterns = [
-    ('db.add(project)\n    db.add(BotConfigDB(', 'db.add(project)\n    db.flush()\n    db.add(BotConfigDB('),
-    ('db.add(new_project)\n    db.add(BotConfigDB(', 'db.add(new_project)\n    db.flush()\n    db.add(BotConfigDB('),
-    ('db.add(project_db)\n    db.add(BotConfigDB(', 'db.add(project_db)\n    db.flush()\n    db.add(BotConfigDB('),
-]
-patched_create = False
-for old_create, new_create in create_patterns:
-    if old_create in s:
-        s=s.replace(old_create,new_create,1)
-        patched_create=True
-        break
-if not patched_create:
-    raise SystemExit('Create-project insert sequence not found; refusing to build an unpatched backend')
+# Insert a flush inside POST /projects immediately before its first BotConfig insert.
+route_start = s.find('@app.post("/projects"')
+if route_start < 0:
+    route_start = s.find("@app.post('/projects'")
+if route_start < 0:
+    raise SystemExit('POST /projects endpoint not found')
+route_end = s.find('\n@app.', route_start + 1)
+if route_end < 0:
+    route_end = len(s)
+route = s[route_start:route_end]
+needle_create = 'db.add(BotConfigDB('
+idx = route.find(needle_create)
+if idx < 0:
+    raise SystemExit('BotConfig insert not found inside POST /projects')
+before = route[:idx]
+if 'db.flush()' not in before[-300:]:
+    indent_start = before.rfind('\n') + 1
+    indent = before[indent_start:len(before)] if False else ''
+    # Match indentation of the BotConfig db.add line.
+    line_start = route.rfind('\n', 0, idx) + 1
+    prefix = route[line_start:idx]
+    route = route[:idx] + 'db.flush()\n' + prefix + route[idx:]
+    s = s[:route_start] + route + s[route_end:]
 
 # Security: strict CORS, server-to-server API key, baseline response headers.
 s=s.replace('from fastapi.responses import StreamingResponse',
