@@ -1,0 +1,5 @@
+"use client";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+const items=[{href:"/",label:"Home",icon:"⌂"},{href:"/projects",label:"Project",icon:"▦"},{href:"/knowledge",label:"Knowledge",icon:"◇"}];
+export default function Sidebar(){const pathname=usePathname();return <aside className="sidebar clean-sidebar"><Link href="/" className="brand-block brand-link"><div className="brand-mark">B</div><div><div className="brand">BOTNOI Builder</div><div className="brand-sub">Agent workspace</div></div></Link><nav className="simple-nav">{items.map(i=>{const active=i.href==="/"?pathname==="/":pathname.startsWith(i.href);return <Link key={i.href} className={`simple-nav-item ${active?"active":""}`} href={i.href}><span className="simple-nav-icon">{i.icon}</span><span>{i.label}</span></Link>})}</nav><div className="sidebar-bottom"><div className="mini-card simple-tip"><div className="mini-label">Workflow</div><div className="mini-value">Describe → Build → Test</div></div></div></aside>}
