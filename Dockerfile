@@ -29,9 +29,16 @@ import base64, tarfile, io
 raw=base64.b64decode(open('/tmp/ui.b64','rb').read())
 tarfile.open(fileobj=io.BytesIO(raw), mode='r:gz').extractall('/app')
 PY
-RUN mkdir -p '/app/app/api/proxy/[...path]'
+RUN mkdir -p '/app/app/api/proxy/[...path]' '/app/app/components' '/app/app/projects/[id]/test-cases'
 COPY botops-proxy-route.ts '/app/app/api/proxy/[...path]/route.ts'
 COPY botops-next.config.mjs /app/next.config.mjs
+COPY ui2-shell.tsx /app/app/components/ProductShell.tsx
+COPY ui2-layout.tsx /app/app/layout.tsx
+COPY ui2-home.tsx /app/app/page.tsx
+COPY ui2-project.tsx '/app/app/projects/[id]/page.tsx'
+COPY ui2-tests.tsx '/app/app/projects/[id]/test-cases/page.tsx'
+COPY ui2-styles.css /tmp/ui2-styles.css
+RUN cat /tmp/ui2-styles.css >> /app/app/globals.css
 RUN python3 - <<'PY'
 from pathlib import Path
 for p in Path('/app').rglob('*.tsx'):
