@@ -16,8 +16,14 @@ import base64, tarfile, io
 raw=base64.b64decode(open('/tmp/app.b64','rb').read())
 tarfile.open(fileobj=io.BytesIO(raw), mode='r:gz').extractall('/app')
 PY
-# Overlay the simplified Agent Builder information architecture/UI.
-COPY ui-bundle.b64 /tmp/ui.b64
+COPY ui-part-0.b64 /tmp/ui0
+COPY ui-part-1.b64 /tmp/ui1
+COPY ui-part-2.b64 /tmp/ui2
+COPY ui-part-3.b64 /tmp/ui3
+COPY ui-part-4.b64 /tmp/ui4
+COPY ui-part-5.b64 /tmp/ui5
+COPY ui-part-6.b64 /tmp/ui6
+RUN cat /tmp/ui0 /tmp/ui1 /tmp/ui2 /tmp/ui3 /tmp/ui4 /tmp/ui5 /tmp/ui6 > /tmp/ui.b64
 RUN python3 - <<'PY'
 import base64, tarfile, io
 raw=base64.b64decode(open('/tmp/ui.b64','rb').read())
@@ -26,7 +32,6 @@ PY
 RUN mkdir -p '/app/app/api/proxy/[...path]'
 COPY botops-proxy-route.ts '/app/app/api/proxy/[...path]/route.ts'
 COPY botops-next.config.mjs /app/next.config.mjs
-# Patch frontend API base for production so browser always uses the secure same-origin proxy.
 RUN python3 - <<'PY'
 from pathlib import Path
 for p in Path('/app').rglob('*.tsx'):
